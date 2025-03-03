@@ -14,43 +14,45 @@
     2. Эндпойнт для поиска с формой
     3. Эндпойнт с полями для ввода
 в) Модели
-    1. С фильтрами
-    2. Для нейронки
+    1. Фильмы
+    2. Жанры
 г) Представления
     1. С фильтрами
     2. Для нейронки
+д) База данных, проверить необходимость во всех полях и добавить их
  */
 
+using FilmLibrary.Models;
+
 var builder = WebApplication.CreateBuilder();
+builder.Services.AddControllersWithViews();
+builder.Services.AddDbContext<ApplicationContext>();
 var app = builder.Build();
-
-app.Map("/SearchFilm", searchFilmApp =>
+// Проверка наличия базы данных и её создание, если она отсутствует
+using (var scope = app.Services.CreateScope())
 {
-    app.Map("/byNeural", async (HttpRequest request) =>
-    {
-        try
-        {
-            return await SearchByNeural(request);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw new ApplicationException("Ошибка в обработке. Сообщение в логе.");
-        }
-    });
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+    dbContext.Database.EnsureCreated(); // Создаёт базу данных, если её нет
+}
+// Настройка middleware для обработки запросов
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts(); // Включает HTTPS
+}
 
-    app.Map("/byFilters", async (HttpRequest request) =>
-    {
-        try
-        {
-            return await SearchByFilters(request, cvService);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw new ApplicationException("Ошибка в обработке. Сообщение в логе.");
-        }
-    });
-});
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+// Включаем маршрутизацию
+app.UseRouting();
+
+// Включаем работу с cookie (если нужны anti-forgery токены)
+app.UseAuthorization();
+
+// Конфигурируем конечные точки
+app.MapControllerRoute(
+    name: "default", // Имя маршрута
+    pattern: "{controller=FilmsController}/{action=Index}/{id?}"); // Шаблон маршрута
 
 app.Run();
